@@ -25,7 +25,24 @@
  */
 class InMemoryGeoTagStore{
 
-    // TODO: ... your code here ...
+    tags = this.readExampleGeoTags();
+
+    readExampleGeoTags  () {
+        const geoTags = [];
+        for (const tag of GeoTagExamples.tagList) {
+            geoTags.push(new GeoTag(tag[0], tag[1], tag[2], tag[3]));
+        }
+        return geoTags;
+    }
+
+    addGeoTag(geoTag) {
+        this.tags.push(geoTag);
+    }
+
+
+    searchGeoTags(keyword) {    
+        return this.tags.filter(geoTag => geoTag.getName().includes(keyword) || geoTag.getHashtag().includes(keyword)); 
+    }
 
 }
 
