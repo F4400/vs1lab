@@ -124,16 +124,16 @@ Zur Übersicht folgen noch mal alle Anforderungen in kompakter Form als Checklis
 ### 1. Teilaufgabe: Server-Implementierung
 
 - [ ] **Skripte** für Backend Funktionen fertigstellen
-  - [ ] **Klasse für GeoTag Objekte** erstellen (`./model/geotag.js`)
-  - [ ] **Klasse zur GeoTag Speicherung** erstellen (`./model/geotag-store.js`)
+  - [X] **Klasse für GeoTag Objekte** erstellen (`./model/geotag.js`)
+  - [X] **Klasse zur GeoTag Speicherung** erstellen (`./model/geotag-store.js`)
     - [ ] Privaten Array nutzen
-    - [ ] Methoden `addGeoTag`, `removeGeoTag`, `getNearbyGeoTags`, `searchNearbyGeoTags` realisieren
-  - [ ] **Beispieldaten für GeoTag Objekte** einlesen (`./model/geotag-examples.js`)
+    - [X] Methoden `addGeoTag`, `removeGeoTag`, `getNearbyGeoTags`, `searchNearbyGeoTags` realisieren
+  - [X] **Beispieldaten für GeoTag Objekte** einlesen (`./model/geotag-examples.js`)
 
-- [ ] **Server Konfiguration und Routen** fertigstellen
-  - [ ] **Statische Dateien** bereitstellen (`./app.js`)
-  - [ ] Route `/tagging` zur **GeoTags Speicherung** erstellen. (`./routes/index.js`)
-  - [ ] Route `/discovery` zur **GeoTag Abfrage** erstellen. (`./routes/index.js`)
+- [X] **Server Konfiguration und Routen** fertigstellen
+  - [X] **Statische Dateien** bereitstellen (`./app.js`)
+  - [X] Route `/tagging` zur **GeoTags Speicherung** erstellen. (`./routes/index.js`)
+  - [X] Route `/discovery` zur **GeoTag Abfrage** erstellen. (`./routes/index.js`)
 
 - [ ] Server **Template** erweitern (`./views/index.ejs`)
   - [ ] Koordinaten in Formulare eintragen
