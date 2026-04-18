@@ -13,6 +13,7 @@
 const express = require('express');
 const router = express.Router();
 
+
 /**
  * The module "geotag" exports a class GeoTagStore. 
  * It represents geotags.
@@ -29,7 +30,10 @@ const GeoTag = require('../models/geotag');
  * TODO: implement the module in the file "../models/geotag-store.js"
  */
 // eslint-disable-next-line no-unused-vars
-const GeoTagStore = require('../models/geotag-store');
+
+/** Singleton instance (geotag-store exports `new InMemoryGeoTagStore()`, not the class). */
+const geoTagStore = require('../models/geotag-store');
+
 
 /**
  * Route '/' for HTTP 'GET' requests.
@@ -42,7 +46,11 @@ const GeoTagStore = require('../models/geotag-store');
 
 // TODO: extend the following route example if necessary
 router.get('/', (req, res) => {
-  res.render('index', { taglist: GeoTagStore.tags })
+  res.render('index', {
+    taglist: geoTagStore.tags,
+    latitude: '',
+    longitude: ''
+  });
 });
 
 
@@ -63,9 +71,13 @@ router.get('/', (req, res) => {
  */
 
 router.post('/tagging', (req, res) => {
-  const geoTag = new GeoTag(req.body.name, req.body.latitude, req.body.longitude, req.body.hashtag);
-  GeoTagStore.addGeoTag(geoTag);
-  res.render('index', { taglist: GeoTagStore.getNearbyGeoTags(geoTag.latitude, geoTag.longitude, 10) });
+  const geoTag = new GeoTag(req.body.Name, req.body.latitude, req.body.longitude, req.body.hashtag);
+  geoTagStore.addGeoTag(geoTag);
+  res.render('index', {
+    taglist: geoTagStore.getNearbyGeoTags(geoTag.latitude, geoTag.longitude, 10),
+    latitude: req.body.latitude ?? '',
+    longitude: req.body.longitude ?? ''
+  });
 });
 
 /**
@@ -85,7 +97,16 @@ router.post('/tagging', (req, res) => {
  */
 
 router.post('/discovery', (req, res) => {
-  res.render('index', { taglist: GeoTagStore.searchGeoTags(req.body.search) });
+  const { latitude, longitude, search } = req.body;
+  const radius = 10;
+  const taglist = search
+    ? geoTagStore.searchNearbyGeoTags(latitude, longitude, radius, search)
+    : geoTagStore.getNearbyGeoTags(latitude, longitude, radius);
+  res.render('index', {
+    taglist,
+    latitude: latitude ?? '',
+    longitude: longitude ?? ''
+  });
 });
 
 
