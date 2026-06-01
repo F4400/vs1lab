@@ -4,171 +4,75 @@
 
 // This script is executed when the browser loads index.html.
 
-// "console.log" writes to the browser's console. 
+// "console.log" writes to the browser's console.
 // The console window must be opened explicitly in the browser.
 // Try to find this output in the browser...
 console.log("The geoTagging script is going to start...");
 
-// Here the API used for geolocations is selected
-// The following declaration is a 'mockup' that always works and returns a fixed position.
-var GEOLOCATION_API = {
-    getCurrentPosition: function(onsuccess) {
-        onsuccess({
-            "coords": {
-                "latitude": 49.013790,
-                "longitude": 8.390071,
-                "altitude": null,
-                "accuracy": 39,
-                "altitudeAccuracy": null,
-                "heading": null,
-                "speed": null
-            },
-            "timestamp": 1775140116396
-        });
+// The 'LocationHelper' and 'MapManager' classes have been moved to their own
+// scripts ('location-helper.js' and 'map-manager.js'). They are loaded in the
+// HTML page before this script, so they are available here.
+
+/**
+ * Read the geotags that the server attached to the map element.
+ * The server serializes the current result list into the '#map' element's
+ * 'data-tags' attribute as a JSON string. Here we read it back and turn it
+ * into a JavaScript array of geotag objects again.
+ * @returns {{name, latitude, longitude, hashtag}[]} the geotag objects (empty if none)
+ */
+const getTagsFromMap = () => {
+    const mapElement = document.getElementById("map");
+    const tagsJson = mapElement.dataset.tags;
+    if (!tagsJson) {
+        return [];
     }
+    return JSON.parse(tagsJson);
 };
 
-// This is the real API.
-// If there are problems with it, comment out the line.
-GEOLOCATION_API = navigator.geolocation;
-
 /**
- * A class to help using the HTML5 Geolocation API.
+ * Render the map and write the coordinates into the form fields.
+ * @param {string|number} latitude
+ * @param {string|number} longitude
  */
-class LocationHelper {
-    // Location values for latitude and longitude are private properties to protect them from changes.
-    #latitude = '';
+const showPosition = (latitude, longitude) => {
+    document.getElementById("latitude").value = latitude;
+    document.getElementById("longitude").value = longitude;
+    document.getElementById("search_latitude").value = latitude;
+    document.getElementById("search_longitude").value = longitude;
 
-    /**
-     * Getter method allows read access to privat location property.
-     */
-    get latitude() {
-        return this.#latitude;
-    }
+    // Geotags from the current search result, delivered by the server.
+    const tags = getTagsFromMap();
 
-    #longitude = '';
-
-    get longitude() {
-        return this.#longitude;
-    }
-
-    /**
-     * Create LocationHelper instance if coordinates are known.
-     * @param {string} latitude
-     * @param {string} longitude
-     */
-    constructor(latitude, longitude) {
-        this.#latitude = (parseFloat(latitude)).toFixed(5);
-        this.#longitude = (parseFloat(longitude)).toFixed(5);
-    }
-
-    /**
-     * The 'findLocation' method requests the current location details through the geolocation API.
-     * It is a static method that should be used to obtain an instance of LocationHelper.
-     * Throws an exception if the geolocation API is not available.
-     * @param {*} callback a function that will be called with a LocationHelper instance as parameter, that has the current location details
-     */
-    static findLocation(callback) {
-        const geoLocationApi = GEOLOCATION_API;
-
-        if (!geoLocationApi) {
-            throw new Error("The GeoLocation API is unavailable.");
-        }
-
-        // Call to the HTML5 geolocation API.
-        // Takes a first callback function as argument that is called in case of success.
-        // Second callback is optional for handling errors.
-        // These callbacks are given as arrow function expressions.
-        geoLocationApi.getCurrentPosition((location) => {
-            // Create and initialize LocationHelper object.
-            let helper = new LocationHelper(location.coords.latitude, location.coords.longitude);
-            // Pass the locationHelper object to the callback.
-            callback(helper);
-        }, (error) => {
-            // alert(error.message)
-            console.error(error.message)
-            callback(new LocationHelper("0.0", "0.0"));
-        });
-    }
-}
-
-/**
- * A class to help using the Leaflet map service.
- */
-class MapManager {
-
-    #map
-    #markers
-
-    /**
-     * Initialize a Leaflet map
-     * @param {number} latitude The map center latitude
-     * @param {number} longitude The map center longitude
-     * @param {number} zoom The map zoom, defaults to 18
-     */
-    initMap(latitude, longitude, zoom = 18) {
-        // set up dynamic Leaflet map
-        this.#map = L.map('map').setView([latitude, longitude], zoom);
-        var mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
-        L.tileLayer(
-            'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            {
-                attribution: '&copy; ' + mapLink + ' Contributors',
-                referrerPolicy: 'origin'
-            }
-        ).addTo(this.#map);
-        this.#markers = L.layerGroup().addTo(this.#map);
-    }
-
-    /**
-     * Update the Markers of a Leaflet map
-     * @param {number} latitude The map center latitude
-     * @param {number} longitude The map center longitude
-     * @param {{latitude, longitude, name}[]} tags The map tags, defaults to just the current location
-     */
-    updateMarkers(latitude, longitude, tags = []) {
-        // delete all markers
-        this.#markers.clearLayers();
-        L.marker([latitude, longitude])
-            .bindPopup("Your Location")
-            .addTo(this.#markers);
-        for (const tag of tags) {
-            L.marker([tag.latitude, tag.longitude])
-                .bindPopup(tag.name)
-                .addTo(this.#markers);
-        }
-    }
-}
+    const mapManager = new MapManager();
+    mapManager.initMap(latitude, longitude);
+    // Show a marker for the current location plus one for each result geotag.
+    mapManager.updateMarkers(latitude, longitude, tags);
+};
 
 /**
  * TODO: 'updateLocation'
  * A function to retrieve the current location and update the page.
  * It is called once the page has been fully loaded.
+ *
+ * The coordinates are reused if they are already present in the form fields
+ * (the server writes them back from the previous request). The GeoLocation API
+ * is only queried when no coordinates are available yet.
  */
 // ... your code here ...
 const updateLocation = () => {
-    LocationHelper.findLocation((locationHelper) => {
-        // console.log("huh", locationHelper.latitude, locationHelper.longitude);
-        // console.log(locationHelper)
-        // console.log(document.getElementById("latitude"))
-        document.getElementById("latitude").value = locationHelper.latitude;
-        document.getElementById("longitude").value = locationHelper.longitude;
-        document.getElementById("search_latitude").value = locationHelper.latitude;
-        document.getElementById("search_longitude").value = locationHelper.longitude;
+    const latitude = document.getElementById("latitude").value;
+    const longitude = document.getElementById("longitude").value;
 
-        const mapDiv = document.getElementById("map");
-        const condemned = mapDiv.children;
-        for (let i = 0; i < condemned.length; i++) {
-            if (condemned[i].tag === "p" || condemned[i].tag === "img") {
-                condemned[i].remove();
-            }
-        }
-
-        const mapManager = new MapManager();
-        mapManager.initMap(locationHelper.latitude, locationHelper.longitude);
-        mapManager.updateMarkers(locationHelper.latitude, locationHelper.longitude);
-    });
-}
+    if (latitude && longitude) {
+        // Coordinates are already known, reuse them and skip the GeoLocation API.
+        showPosition(latitude, longitude);
+    } else {
+        // No coordinates yet, query the GeoLocation API.
+        LocationHelper.findLocation((locationHelper) => {
+            showPosition(locationHelper.latitude, locationHelper.longitude);
+        });
+    }
+};
 
 // Wait for the page to fully load its DOM content, then call updateLocation
 document.addEventListener("DOMContentLoaded", () => {
