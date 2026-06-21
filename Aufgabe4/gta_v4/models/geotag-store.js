@@ -29,6 +29,9 @@ const GeoTagExamples = require('./geotag-examples');
  */
 class InMemoryGeoTagStore{
 
+    // Counter used to hand out unique primary keys (ids) for stored geotags.
+    #idCounter = 0;
+
     constructor() {
         this.tags = this.readExampleGeoTags();
     }
@@ -36,13 +39,52 @@ class InMemoryGeoTagStore{
     readExampleGeoTags  () {
         const geoTags = [];
         for (const tag of GeoTagExamples.tagList) {
-            geoTags.push(new GeoTag(tag[0], tag[1], tag[2], tag[3]));
+            const geoTag = new GeoTag(tag[0], tag[1], tag[2], tag[3]);
+            geoTag.id = ++this.#idCounter;
+            geoTags.push(geoTag);
         }
         return geoTags;
     }
 
     addGeoTag(geoTag) {
+        geoTag.id = ++this.#idCounter;
         this.tags.push(geoTag);
+        return geoTag;
+    }
+
+    /**
+     * Returns the geotag with the given id, or undefined if none exists.
+     */
+    getGeoTagById(id) {
+        return this.tags.find(geoTag => geoTag.id === Number(id));
+    }
+
+    /**
+     * Updates the geotag with the given id from the provided data.
+     * Returns the updated geotag, or undefined if none exists.
+     */
+    updateGeoTag(id, data) {
+        const geoTag = this.getGeoTagById(id);
+        if (!geoTag) {
+            return undefined;
+        }
+        geoTag.name = data.name ?? geoTag.name;
+        geoTag.latitude = data.latitude ?? geoTag.latitude;
+        geoTag.longitude = data.longitude ?? geoTag.longitude;
+        geoTag.hashtag = data.hashtag ?? geoTag.hashtag;
+        return geoTag;
+    }
+
+    /**
+     * Deletes the geotag with the given id.
+     * Returns the deleted geotag, or undefined if none exists.
+     */
+    deleteGeoTag(id) {
+        const index = this.tags.findIndex(geoTag => geoTag.id === Number(id));
+        if (index === -1) {
+            return undefined;
+        }
+        return this.tags.splice(index, 1)[0];
     }
 
     removeGeoTag(name) {

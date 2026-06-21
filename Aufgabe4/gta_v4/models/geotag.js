@@ -12,12 +12,17 @@
 class GeoTag {
 
     constructor(name, latitude, longitude, hashtag) {
+        // Primary key, assigned by the store when the geotag is added.
+        this.id = null;
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
         this.hashtag = hashtag;
     }
-    // TODO: ... your code here ...
+
+    getId() {
+        return this.id;
+    }
     getName() {
         return this.name;
     }

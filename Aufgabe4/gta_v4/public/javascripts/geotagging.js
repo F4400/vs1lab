@@ -12,13 +12,40 @@ console.log("The geoTagging script is going to start...");
 // HTML page before this script, so they are available here.
 
 /**
- * Store current location coordinates for reuse
+ * A single shared MapManager instance. The Leaflet map may only be
+ * initialized once per container, so we keep track of that here and
+ * only refresh the markers on subsequent updates.
+ */
+let mapManager;
+let mapInitialized = false;
+
+/**
+ * The current location is stored here so that both the tagging and the
+ * discovery requests can reuse it.
  */
 let currentLatitude = '';
 let currentLongitude = '';
 
 /**
- * Render the map and write the coordinates into the form fields.
+ * Render the map: initialize it once, then (re)draw all markers.
+ * @param {string|number} latitude
+ * @param {string|number} longitude
+ * @param {{latitude, longitude, name}[]} tags
+ */
+const renderMap = (latitude, longitude, tags = []) => {
+    if (!mapManager) {
+        mapManager = new MapManager();
+    }
+    if (!mapInitialized) {
+        mapManager.initMap(latitude, longitude);
+        mapInitialized = true;
+    }
+    mapManager.updateMarkers(latitude, longitude, tags);
+};
+
+/**
+ * Write the coordinates into the (hidden) form fields and remember them
+ * for the AJAX requests, then center the map on the location.
  * @param {string|number} latitude
  * @param {string|number} longitude
  */
@@ -31,151 +58,148 @@ const showPosition = (latitude, longitude) => {
     document.getElementById("search_latitude").value = latitude;
     document.getElementById("search_longitude").value = longitude;
 
-    const mapManager = new MapManager();
-    mapManager.initMap(latitude, longitude);
-    mapManager.updateMarkers(latitude, longitude, []);
+    renderMap(latitude, longitude, []);
 };
 
 /**
- * Update location based on stored coordinates or GeoLocation API
+ * Retrieve the current location once the page has loaded.
+ * Existing coordinates from the form are reused, otherwise the
+ * GeoLocation API is queried. Afterwards an initial discovery is
+ * triggered to populate the result list and the map.
  */
 const updateLocation = () => {
     const latitude = document.getElementById("latitude").value;
     const longitude = document.getElementById("longitude").value;
 
     if (latitude && longitude) {
-        // Coordinates are already known, reuse them and skip the GeoLocation API.
         showPosition(latitude, longitude);
+        discover('');
     } else {
-        // No coordinates yet, query the GeoLocation API.
         LocationHelper.findLocation((locationHelper) => {
             showPosition(locationHelper.latitude, locationHelper.longitude);
+            discover('');
         });
     }
 };
 
 /**
- * Add a new GeoTag via AJAX POST request
+ * Render the GeoTag result list inside the discovery widget.
+ * @param {{name, latitude, longitude, hashtag}[]} tags
  */
-const addGeoTag = async (event) => {
-    event.preventDefault();
-    
-    const name = document.getElementById("name").value;
-    const hashtag = document.getElementById("hashtag").value;
-    
-    if (!name || !currentLatitude || !currentLongitude) {
-        alert("Please enter a name and ensure location is available");
+const renderTagList = (tags) => {
+    const list = document.getElementById("discoveryResults");
+    if (!list) {
+        return;
+    }
+    list.innerHTML = '';
+    tags.forEach((tag) => {
+        const item = document.createElement('li');
+        item.textContent =
+            `${tag.name} ( ${tag.latitude},${tag.longitude}) ${tag.hashtag}`;
+        list.appendChild(item);
+    });
+};
+
+/**
+ * Query the server for GeoTags via an asynchronous HTTP GET request
+ * (Fetch API) using query parameters, then update list and map.
+ * @param {string} searchTerm optional filter term
+ */
+const discover = async (searchTerm) => {
+    if (!currentLatitude || !currentLongitude) {
         return;
     }
 
+    const params = new URLSearchParams({
+        latitude: currentLatitude,
+        longitude: currentLongitude
+    });
+    if (searchTerm) {
+        params.set('search', searchTerm);
+    }
+
+    try {
+        const response = await fetch(`/api/geotags?${params.toString()}`);
+        if (!response.ok) {
+            console.error("Discovery request failed:", response.status);
+            return;
+        }
+        const taglist = await response.json();
+        renderTagList(taglist);
+        renderMap(currentLatitude, currentLongitude, taglist);
+    } catch (error) {
+        console.error("Error during discovery:", error);
+    }
+};
+
+/**
+ * Handler for the discovery form. Runs an asynchronous HTTP GET request
+ * with query parameters instead of submitting the form to the server.
+ * HTML5 form validation still runs before this handler is invoked.
+ * @param {SubmitEvent} event
+ */
+const onDiscoverySubmit = (event) => {
+    event.preventDefault();
+    const searchTerm = document.getElementById("search").value;
+    discover(searchTerm);
+};
+
+/**
+ * Handler for the tagging form. Sends the new GeoTag asynchronously via
+ * an HTTP POST request with a JSON body (Fetch API), then refreshes the
+ * discovery widget so the new tag becomes visible.
+ * HTML5 form validation still runs before this handler is invoked.
+ * @param {SubmitEvent} event
+ */
+const onTaggingSubmit = async (event) => {
+    event.preventDefault();
+
     const geoTag = {
-        name: name,
+        name: document.getElementById("name").value,
         latitude: currentLatitude,
         longitude: currentLongitude,
-        hashtag: hashtag
+        hashtag: document.getElementById("hashtag").value
     };
 
     try {
         const response = await fetch('/api/geotags', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(geoTag)
         });
-
-        if (response.ok) {
-            console.log("GeoTag added successfully");
-            // Clear form
-            document.getElementById("name").value = '';
-            document.getElementById("hashtag").value = '';
-            // Update discovery list
-            updateDiscovery();
-        } else {
-            console.error("Failed to add GeoTag");
+        if (!response.ok) {
+            console.error("Tagging request failed:", response.status);
+            return;
         }
+
+        // Reset the editable tagging fields.
+        document.getElementById("name").value = '';
+        document.getElementById("hashtag").value = '';
+
+        // Refresh the discovery widget, keeping any active search term.
+        discover(document.getElementById("search").value);
     } catch (error) {
-        console.error("Error adding GeoTag:", error);
+        console.error("Error while adding GeoTag:", error);
     }
 };
 
 /**
- * Search for GeoTags via AJAX GET request and update the display
- */
-const updateDiscovery = async (event) => {
-    if (event) {
-        event.preventDefault();
-    }
-
-    const searchTerm = document.getElementById("search").value;
-    const latitude = document.getElementById("search_latitude").value;
-    const longitude = document.getElementById("search_longitude").value;
-
-    if (!latitude || !longitude) {
-        alert("Location not available");
-        return;
-    }
-
-    const params = new URLSearchParams({
-        latitude: latitude,
-        longitude: longitude,
-        ...(searchTerm && { search: searchTerm })
-    });
-
-    try {
-        const response = await fetch(`/api/geotags?${params}`);
-        if (response.ok) {
-            const taglist = await response.json();
-            console.log("Tags fetched:", taglist);
-            
-            // Update the tag list in the UI
-            updateTagListUI(taglist);
-            
-            // Update the map
-            const mapManager = new MapManager();
-            mapManager.initMap(latitude, longitude);
-            mapManager.updateMarkers(latitude, longitude, taglist);
-        } else {
-            console.error("Failed to fetch tags");
-        }
-    } catch (error) {
-        console.error("Error fetching tags:", error);
-    }
-};
-
-/**
- * Update the tag list UI with fetched tags
- */
-const updateTagListUI = (tags) => {
-    const tagListElement = document.getElementById("discoveryResults");
-    if (!tagListElement) return;
-
-    tagListElement.innerHTML = '';
-    tags.forEach(tag => {
-        const listItem = document.createElement('li');
-        listItem.textContent = `${tag.name} (${tag.latitude}, ${tag.longitude}) ${tag.hashtag}`;
-        tagListElement.appendChild(listItem);
-    });
-};
-
-/**
- * Register event listeners for form buttons
+ * Register the event listeners for both forms and prevent their default
+ * (page-reloading) submit behaviour.
  */
 const setupEventListeners = () => {
-    // Tagging form button
     const taggingForm = document.getElementById('tag-form');
     if (taggingForm) {
-        taggingForm.addEventListener('submit', addGeoTag);
+        taggingForm.addEventListener('submit', onTaggingSubmit);
     }
 
-    // Discovery form button
     const discoveryForm = document.getElementById('discoveryFilterForm');
     if (discoveryForm) {
-        discoveryForm.addEventListener('submit', updateDiscovery);
+        discoveryForm.addEventListener('submit', onDiscoverySubmit);
     }
 };
 
-// Wait for the page to fully load its DOM content, then initialize
+// Wait for the page to fully load its DOM content, then initialize.
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Page loaded, now updating location...");
     updateLocation();
