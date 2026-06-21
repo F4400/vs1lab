@@ -50,6 +50,9 @@ class InMemoryGeoTagStore{
     }
 
     getNearbyGeoTags(latitude, longitude, radius) {
+        if (!radius) {
+            radius = 1000;
+        }
         return this.tags.filter(geoTag => {
             const distance = Math.sqrt(Math.pow(geoTag.getLatitude() - latitude, 2) + Math.pow(geoTag.getLongitude() - longitude, 2));
             return distance <= radius;
