@@ -79,7 +79,21 @@ router.get('/api/geotags', (req, res) => {
     taglist = geoTagStore.tags;
   }
 
-  res.json(taglist);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.max(1, parseInt(req.query.pageSize, 10) || 5);
+  const totalCount = taglist.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const pagedTags = taglist.slice(start, start + pageSize);
+
+  res.json({
+    tags: pagedTags,
+    page: safePage,
+    pageSize,
+    totalPages,
+    totalCount
+  });
 });
 
 

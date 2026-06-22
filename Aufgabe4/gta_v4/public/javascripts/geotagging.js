@@ -26,6 +26,10 @@ let mapInitialized = false;
 let currentLatitude = '';
 let currentLongitude = '';
 
+let currentPage = 1;
+let totalPages = 1;
+const PAGE_SIZE = 5;
+
 /**
  * Render the map: initialize it once, then (re)draw all markers.
  * @param {string|number} latitude
@@ -104,15 +108,18 @@ const renderTagList = (tags) => {
  * Query the server for GeoTags via an asynchronous HTTP GET request
  * (Fetch API) using query parameters, then update list and map.
  * @param {string} searchTerm optional filter term
+ * @param {number} [page=1] page number to request
  */
-const discover = async (searchTerm) => {
+const discover = async (searchTerm, page = 1) => {
     if (!currentLatitude || !currentLongitude) {
         return;
     }
 
     const params = new URLSearchParams({
         latitude: currentLatitude,
-        longitude: currentLongitude
+        longitude: currentLongitude,
+        page: String(page),
+        pageSize: String(PAGE_SIZE)
     });
     if (searchTerm) {
         params.set('search', searchTerm);
@@ -124,9 +131,12 @@ const discover = async (searchTerm) => {
             console.error("Discovery request failed:", response.status);
             return;
         }
-        const taglist = await response.json();
-        renderTagList(taglist);
-        renderMap(currentLatitude, currentLongitude, taglist);
+        const data = await response.json();
+        currentPage = data.page;
+        totalPages = data.totalPages;
+        renderTagList(data.tags);
+        renderPagination();
+        renderMap(currentLatitude, currentLongitude, data.tags);
     } catch (error) {
         console.error("Error during discovery:", error);
     }
@@ -184,6 +194,20 @@ const onTaggingSubmit = async (event) => {
 };
 
 /**
+ * Update the pagination widget to reflect the current page state.
+ */
+const renderPagination = () => {
+    const info = document.getElementById('paginationInfo');
+    const prevBtn = document.getElementById('paginationPrev');
+    const nextBtn = document.getElementById('paginationNext');
+    if (!info || !prevBtn || !nextBtn) return;
+
+    info.textContent = `Page ${currentPage} / ${totalPages}`;
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage >= totalPages;
+};
+
+/**
  * Register the event listeners for both forms and prevent their default
  * (page-reloading) submit behaviour.
  */
@@ -196,6 +220,24 @@ const setupEventListeners = () => {
     const discoveryForm = document.getElementById('discoveryFilterForm');
     if (discoveryForm) {
         discoveryForm.addEventListener('submit', onDiscoverySubmit);
+    }
+
+    const prevBtn = document.getElementById('paginationPrev');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                discover(document.getElementById("search").value, currentPage - 1);
+            }
+        });
+    }
+
+    const nextBtn = document.getElementById('paginationNext');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                discover(document.getElementById("search").value, currentPage + 1);
+            }
+        });
     }
 };
 

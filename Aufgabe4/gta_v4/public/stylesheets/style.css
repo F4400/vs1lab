@@ -235,6 +235,42 @@ input:disabled {
 
 
 
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75em;
+    margin-top: 1em;
+}
+
+.pagination__btn {
+    background: var(--background-color);
+    border: 2px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 0.3em 0.7em;
+    cursor: pointer;
+    color: var(--link-color);
+    transition: background 0.15s;
+}
+
+.pagination__btn:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.pagination__btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.pagination__info {
+    font-size: 0.95em;
+    color: var(--gray-color);
+    min-width: 7em;
+    text-align: center;
+}
+
 /* As dictated by the Exercise Description */
 #map {
     height: 500px;

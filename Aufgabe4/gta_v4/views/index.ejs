@@ -150,6 +150,12 @@
                         <li><%= gtag.name %> ( <%= gtag.latitude %>,<%= gtag.longitude %>) <%= gtag.hashtag %> </li>
                     <% }); %>
                 </ul>
+
+                <nav class="pagination" id="pagination">
+                    <button class="pagination__btn" id="paginationPrev" title="Previous page">&laquo;</button>
+                    <span class="pagination__info" id="paginationInfo">Page 1 / 1</span>
+                    <button class="pagination__btn" id="paginationNext" title="Next page">&raquo;</button>
+                </nav>
             </div>
 
             <div id="map" class="discovery__map" data-tags="<%= JSON.stringify(taglist || []) %>">
